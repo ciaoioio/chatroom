@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<title>Calcolatrice + Chat + Admin</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  #calculator, #chatSection, #adminSection, #loginAdminSection {
+    max-width: 600px;
+    margin: auto;
+  }
+  input, button { padding: 10px; font-size: 16px; margin: 5px; }
+  #display { width: 240px; font-size: 20px; padding: 10px; text-align: right; }
+  #chat { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; background: #f9f9f9; margin-bottom: 10px; }
+  #chatSection, #adminSection, #loginAdminSection {
+    display: none;
+  }
+  #adminButton {
+    display: none;
+    margin-top: 10px;
+    padding: 10px 15px;
+    font-size: 16px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+</style>
+</head>
+<body>
+
+<!-- Calcolatrice -->
+<div id="calculator">
+  <h1>Calcolatrice</h1>
+  <input type="text" id="display" readonly />
+  <br />
+  <button onclick="appendCalc('1')">1</button>
+  <button onclick="appendCalc('2')">2</button>
+  <button onclick="appendCalc('3')">3</button>
+  <button onclick="appendCalc('+')">+</button>
+  <br />
+  <button onclick="appendCalc('4')">4</button>
+  <button onclick="appendCalc('5')">5</button>
+  <button onclick="appendCalc('6')">6</button>
+  <button onclick="appendCalc('-')">-</button>
+  <br />
+  <button onclick="appendCalc('7')">7</button>
+  <button onclick="appendCalc('8')">8</button>
+  <button onclick="appendCalc('9')">9</button>
+  <button onclick="appendCalc('*')">*</button>
+  <br />
+  <button onclick="clearCalc()">C</button>
+  <button onclick="appendCalc('0')">0</button>
+  <button onclick="evaluateCalc()">=</button>
+  <button onclick="appendCalc('/')">/</button>
+  <br />
+</div>
+
+<!-- Chat -->
+<div id="chatSection">
+  <h2>Chatroom Anonima</h2>
+
+  <div id="loginChatSection">
+    <input type="text" id="nicknameInput" placeholder="Inserisci il tuo nickname" />
+    <button onclick="enterChat()">Entra nella chat</button>
+  </div>
+
+  <div id="chatUI" style="display:none;">
+    <div id="chat"></div>
+    <input type="text" id="messageInput" placeholder="Scrivi un messaggio..." />
+    <button onclick="sendMessage()">Invia</button>
+    <button onclick="logoutChat()">Esci</button>
+  </div>
+
+  <button id="adminButton" onclick="showAdminLogin()">Area Admin</button>
+</div>
+
+<!-- Login Admin -->
+<div id="loginAdminSection">
+  <h2>Login Amministratore</h2>
+  <input type="text" id="adminUser" placeholder="Username" />
+  <input type="password" id="adminPass" placeholder="Password" />
+  <button onclick="loginAdmin()">Accedi</button>
+  <button onclick="hideAdminLogin()">Annulla</button>
+  <div id="adminError" style="color:red; margin-top:10px;"></div>
+</div>
+
+<!-- Admin Panel -->
+<div id="adminSection">
+  <h2>Area Amministratore</h2>
+  <table>
+    <thead><tr><th>Nickname</th><th>Codice Identificativo</th></tr></thead>
+    <tbody id="usersTableBody"></tbody>
+  </table>
+  <button onclick="logoutAdmin()">Logout</button>
+</div>
+
+<script>
+  // --- Calcolatrice ---
+  function appendCalc(c) {
+    const d = document.getElementById('display');
+    d.value += c;
+  }
+  function clearCalc() {
+    document.getElementById('display').value = '';
+  }
+  function evaluateCalc() {
+    const d = document.getElementById('display');
+    if (d.value === '3100') {
+      document.getElementById('calculator').style.display = 'none';
+      document.getElementById('chatSection').style.display = 'block';
+      document.getElementById('adminButton').style.display = 'inline-block';
+      d.value = '';
+    } else {
+      try {
+        d.value = eval(d.value);
+      } catch {
+        alert('Espressione non valida');
+      }
+    }
+  }
+
+  // --- Chat ---
+  const chatBox = document.getElementById('chat');
+
+  function getUsers() {
+    return JSON.parse(localStorage.getItem('chatUsers') || '[]');
+  }
+  function saveUsers(users) {
+    localStorage.setItem('chatUsers', JSON.stringify(users));
+  }
+  function generateUserID() {
+    return 'ID-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  }
+
+  function enterChat() {
+    const nickname = document.getElementById('nicknameInput').value.trim();
+    if (!nickname) {
+      alert('Inserisci un nickname!');
+      return;
+    }
+    let users = getUsers();
+    const userId = generateUserID();
+    users.push({ id: userId, nickname });
+    saveUsers(users);
+    sessionStorage.setItem('currentUser', JSON.stringify({ id: userId, nickname }));
+
+    document.getElementById('loginChatSection').style.display = 'none';
+    document.getElementById('chatUI').style.display = 'block';
+
+    chatBox.innerHTML = `<div><em>Benvenuto ${nickname}! Il tuo ID è <strong>${userId}</strong></em></div>`;
+  }
+
+  const messages = [];
+  function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const message = input.value.trim();
+    if (!message) return;
+    const user = JSON.parse(sessionStorage.getItem('currentUser'));
+    messages.push({ id: user.id, nickname: user.nickname, text: message });
+    chatBox.innerHTML += `<div><strong>${user.nickname}:</strong> ${message}</div>`;
+    input.value = '';
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  function logoutChat() {
+    sessionStorage.removeItem('currentUser');
+    document.getElementById('chatUI').style.display = 'none';
+    document.getElementById('loginChatSection').style.display = 'block';
+    chatBox.innerHTML = '';
+    document.getElementById('nicknameInput').value = '';
+  }
+
+  // --- Admin Login ---
+  function showAdminLogin() {
+    document.getElementById('chatSection').style.display = 'none';
+    document.getElementById('adminButton').style.display = 'none';
+    document.getElementById('loginAdminSection').style.display = 'block';
+    document.getElementById('adminError').innerText = '';
+    document.getElementById('adminUser').value = '';
+    document.getElementById('adminPass').value = '';
+  }
+
+  function hideAdminLogin() {
+    document.getElementById('loginAdminSection').style.display = 'none';
+    document.getElementById('chatSection').style.display = 'block';
+    document.getElementById('adminButton').style.display = 'inline-block';
+  }
+
+  function loginAdmin() {
+    const user = document.getElementById('adminUser').value;
+    const pass = document.getElementById('adminPass').value;
+    const errorDiv = document.getElementById('adminError');
+    if (user === 'admin' && pass === 'admin') {
+      errorDiv.innerText = '';
+      document.getElementById('loginAdminSection').style.display = 'none';
+      document.getElementById('adminSection').style.display = 'block';
+      loadUsers();
+    } else {
+      errorDiv.innerText = 'Credenziali errate!';
+    }
+  }
+
+  function logoutAdmin() {
+    document.getElementById('adminSection').style.display = 'none';
+    document.getElementById('calculator').style.display = 'block';
+    document.getElementById('chatSection').style.display = 'none';
+    document.getElementById('adminButton').style.display = 'none';
+  }
+
+  // --- Admin Panel ---
+  function loadUsers() {
+    const users = getUsers();
+    const tbody = document.getElementById('usersTableBody');
+    tbody.innerHTML = '';
+    users.forEach(u => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${u.nickname}</td><td>${u.id}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+</script>
+
+</body>
+</html>
